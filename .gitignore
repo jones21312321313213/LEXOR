@@ -1,0 +1,14 @@
+# Ignore VS Code folder
+.vscode/
+
+# Ignore Windows executables
+*.exe
+
+# Ignore compiled output files
+*.out
+*.o
+*.obj
+
+# Ignore build folders (optional)
+build/
+bin/
