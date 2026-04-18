@@ -1,6 +1,9 @@
 #![allow(dead_code, unused_variables, unused_imports, non_camel_case_types)]
 //#![allow(warnings)]
+mod environment;
+mod error;
 mod expr;
+mod interpreter;
 mod lexer;
 mod parser;
 mod stmt;
@@ -11,9 +14,9 @@ use std::io::{self, BufRead};
 use std::process;
 
 // Assuming you have these modules defined in your Rust project
+use crate::interpreter::Interpreter;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
-// use crate::interpreter::Interpreter;
 
 fn main() {
     // Collect command line arguments into a Vector
@@ -84,22 +87,29 @@ fn run_prompt() -> io::Result<()> {
 }
 
 fn run(source: &str) -> Result<(), String> {
+    // 1. Lexical Analysis
     let mut lexer = Lexer::new(source);
     let tokens = lexer.scan_tokens();
-
-    println!("--- Scanned Tokens ---");
-    for token in &tokens {
-        println!("{:?}", token);
-    }
 
     // 2. Syntax Analysis (Parsing)
     let mut parser = Parser::new(tokens);
     let statements = parser.parse();
 
-    // 3. Print the Abstract Syntax Tree!
-    // The {:#?} automatically formats your nested Enums/Structs into a beautiful tree.
-    println!("\n--- Abstract Syntax Tree (AST) ---");
-    println!("{:#?}", statements);
+    // uncomment to see tokens and AST
+    // println!("--- Scanned Tokens ---");
+    // for token in &tokens { println!("{:?}", token); }
+    // println!("\n--- Abstract Syntax Tree (AST) ---");
+    // println!("{:#?}", statements);
+
+    // 3. Execution (Interpreting)
+    println!("\n--- Program Output ---");
+    let mut interpreter = Interpreter::new();
+
+    // We run the interpreter and use map_err to convert our custom
+    // RuntimeError into a standard String so it prints nicely if it fails.
+    interpreter
+        .interpret(&statements)
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }

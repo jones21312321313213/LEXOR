@@ -13,9 +13,6 @@ pub enum LiteralValue {
     Nil,
 }
 
-/// The AST Expression node.
-/// This single enum replaces Expr.java, Assign.java, Binary.java, Grouping.java,
-/// Literal.java, Logical.java, Unary.java, and Variable.java!
 #[derive(Debug, Clone)]
 pub enum Expr {
     // Handles variable assignment (e.g., x = 5)

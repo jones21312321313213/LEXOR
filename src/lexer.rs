@@ -45,7 +45,7 @@ impl Lexer {
             
             // Matches all single and double character operators. 
             // Sorted longest to shortest so '==' is checked before '='
-            re_symbol: Regex::new(r"^(==|>=|<=|<>|!=|\[\]|\[.\]|&&|\|\||!|\+|-|\*|/|%|&|<|>|=|\[|\]|\(|\)|,|:|\$)").unwrap(),
+           re_symbol: Regex::new(r"^(==|>=|<=|<>|!=|\[.\]|\[\]|&&|\|\||!|\+|-|\*|/|%|&|<|>|=|\[|\]|\(|\)|,|:|\$)").unwrap(),
         }
     }
 

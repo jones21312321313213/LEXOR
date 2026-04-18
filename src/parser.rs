@@ -307,8 +307,17 @@ impl Parser {
             }
             TokenType::EscapeCode => {
                 self.advance();
+
+                // Strip the surrounding '[' and ']'
+                // "[[]" becomes "[", "[]]" becomes "]", and "[]" becomes ""
+                let inner_text = if token.lexeme.len() > 2 {
+                    token.lexeme[1..token.lexeme.len() - 1].to_string()
+                } else {
+                    String::new()
+                };
+
                 Ok(Expr::Literal {
-                    value: LiteralValue::String(token.lexeme.clone()),
+                    value: LiteralValue::String(inner_text),
                 })
             }
             TokenType::Identifier(_) => {
