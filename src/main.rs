@@ -1,6 +1,9 @@
 #![allow(dead_code, unused_variables, unused_imports, non_camel_case_types)]
 //#![allow(warnings)]
+mod expr;
 mod lexer;
+mod parser;
+mod stmt;
 mod token;
 use std::env;
 use std::fs;
@@ -9,7 +12,7 @@ use std::process;
 
 // Assuming you have these modules defined in your Rust project
 use crate::lexer::Lexer;
-// use crate::parser::Parser;
+use crate::parser::Parser;
 // use crate::interpreter::Interpreter;
 
 fn main() {
@@ -80,34 +83,23 @@ fn run_prompt() -> io::Result<()> {
     Ok(())
 }
 
-/// The Rust equivalent of your `run` method.
-/// Notice it returns a `Result<(), String>` instead of checking global flags.
 fn run(source: &str) -> Result<(), String> {
-    /* TODO: Uncomment and adapt this once your modules are written
-
-
-
-    // 2. Syntax Analysis
-    let mut parser = Parser::new(tokens);
-    // If parse() fails, the `?` will immediately return the error
-    let statements = parser.parse().map_err(|_| "Syntax Error occurred")?;
-
-    // 3. Execution
-    let mut interpreter = Interpreter::new();
-    interpreter.interpret(&statements).map_err(|_| "Runtime Error occurred")?;
-
-    */
-
-    // 1. Lexical Analysis
     let mut lexer = Lexer::new(source);
     let tokens = lexer.scan_tokens();
 
     println!("--- Scanned Tokens ---");
-    for token in tokens {
-        println!("{:#?}", token);
+    for token in &tokens {
+        println!("{:?}", token);
     }
-    // For now, just print to verify the REPL works:
-    //println!("Executing:\n{}", source);
+
+    // 2. Syntax Analysis (Parsing)
+    let mut parser = Parser::new(tokens);
+    let statements = parser.parse();
+
+    // 3. Print the Abstract Syntax Tree!
+    // The {:#?} automatically formats your nested Enums/Structs into a beautiful tree.
+    println!("\n--- Abstract Syntax Tree (AST) ---");
+    println!("{:#?}", statements);
 
     Ok(())
 }

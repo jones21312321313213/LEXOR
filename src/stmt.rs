@@ -1,0 +1,60 @@
+// Adjust these import paths depending on your project structure!
+use crate::expr::Expr;
+use crate::token::Token; // Assuming your Expr enum is in expr.rs
+
+/// The AST Statement node.
+/// This single enum replaces Stmt, Block, Expression, For, If, Print, Scan, Var, and While!
+#[derive(Debug, Clone)]
+pub enum Stmt {
+    // 1. Block: For START/END blocks like START IF, START FOR, etc.
+    Block {
+        statements: Vec<Stmt>,
+    },
+
+    // 2. Expression Statement: For standalone assignments like x = y = 4
+    Expression {
+        expression: Expr,
+    },
+
+    // 3. FOR Statement: Specialized for the FOR(initialization, condition, update)
+    For {
+        initializer: Expr,
+        condition: Expr,
+        increment: Expr,
+        body: Box<Stmt>,
+    },
+
+    // 4. IF Statement: For IF, ELSE IF, and ELSE control flows
+    If {
+        condition: Expr,
+        then_branch: Box<Stmt>,
+        // In Java, this might be null if there is no ELSE. In Rust, we use Option!
+        else_branch: Option<Box<Stmt>>,
+    },
+
+    // 5. PRINT Statement: Formatted output for data and escape codes
+    Print {
+        expression: Expr,
+    },
+
+    // 6. SCAN Statement: Allowing user to input a value to a data type
+    Scan {
+        variables: Vec<Token>,
+        types: Vec<String>,
+    },
+
+    // 7. VAR Statement: Handles DECLARE for INT, CHAR, BOOL, and FLOAT
+    Var {
+        // 'type' is a reserved keyword in Rust, so we name it 'data_type'
+        data_type: Token,
+        name: Token,
+        // Using Option because a user might DECLARE a variable without assigning a value right away
+        initializer: Option<Expr>,
+    },
+
+    // 8. While (REPEAT WHEN) Statement
+    While {
+        condition: Expr,
+        body: Box<Stmt>,
+    },
+}
