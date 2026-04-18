@@ -1,10 +1,14 @@
+#![allow(dead_code, unused_variables, unused_imports, non_camel_case_types)]
+//#![allow(warnings)]
+mod lexer;
+mod token;
 use std::env;
 use std::fs;
 use std::io::{self, BufRead};
 use std::process;
 
 // Assuming you have these modules defined in your Rust project
-// use crate::lexer::Lexer;
+use crate::lexer::Lexer;
 // use crate::parser::Parser;
 // use crate::interpreter::Interpreter;
 
@@ -81,9 +85,7 @@ fn run_prompt() -> io::Result<()> {
 fn run(source: &str) -> Result<(), String> {
     /* TODO: Uncomment and adapt this once your modules are written
 
-    // 1. Lexical Analysis
-    let mut lexer = Lexer::new(source);
-    let tokens = lexer.scan_tokens();
+
 
     // 2. Syntax Analysis
     let mut parser = Parser::new(tokens);
@@ -96,8 +98,16 @@ fn run(source: &str) -> Result<(), String> {
 
     */
 
+    // 1. Lexical Analysis
+    let mut lexer = Lexer::new(source);
+    let tokens = lexer.scan_tokens();
+
+    println!("--- Scanned Tokens ---");
+    for token in tokens {
+        println!("{:#?}", token);
+    }
     // For now, just print to verify the REPL works:
-    println!("Executing:\n{}", source);
+    //println!("Executing:\n{}", source);
 
     Ok(())
 }
