@@ -1,7 +1,5 @@
-// Adjust this import path depending on where your Token struct lives!
 use crate::token::Token;
 
-/// Replaces Java's `Object` for Literal values.
 /// Since Rust is strictly typed, we define exactly what a literal can be.
 #[derive(Debug, Clone, PartialEq)]
 pub enum LiteralValue {

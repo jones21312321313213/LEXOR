@@ -13,8 +13,6 @@ impl RuntimeError {
     }
 }
 
-// This implements the standard "Display" trait, which allows you to
-// print the error beautifully using println!("{}", error);
 impl std::fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(

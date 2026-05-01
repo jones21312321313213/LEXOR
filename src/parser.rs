@@ -1,18 +1,18 @@
 use std::collections::HashMap;
 
-use crate::expr::{Expr, LiteralValue}; // Assuming LiteralValue was defined in expr.rs
+use crate::expr::{Expr, LiteralValue};
 use crate::stmt::Stmt;
 use crate::token::{Token, TokenType};
 
 /**
- * Corrected LEXOR Parser
- * Hierarchy (Lowest to Highest):
+ *
+ *
  * assignment -> concatenation (&) -> or -> and -> logicalNot (NOT)
  * -> equality (==, <>) -> comparison (>, <, etc) -> term (+, -)
  * -> factor (*, /, %) -> unary (+, -, !) -> primary
  */
 
-/** CFG for expressions
+/** cfg for EXPR(expressions)
  * <expression>     ::= <assignment>
  * <assignment>     ::= <identifier> "=" <assignment> | <concatenation>
  * <concatenation>  ::= <or> ( "&" <or> )*
@@ -27,7 +27,7 @@ use crate::token::{Token, TokenType};
  * <primary>        ::= NUMBER | STRING | BOOLEAN | IDENTIFIER | "(" <expression> ")"
  */
 
-// Sentinel struct to unwind the parser (Replaces Java's RuntimeException ParseError)
+// Sentinel struct to unwind the parser
 #[derive(Debug)]
 pub struct ParseError;
 
@@ -48,16 +48,17 @@ impl Parser {
         }
     }
 
-    pub fn parse(&mut self) -> Vec<Stmt> {
+    pub fn parse(&mut self) -> Option<Vec<Stmt>> {
         self.current = 0;
         self.allow_declarations = true;
-        self.variable_types.clear(); // CRITICAL: Clear old variable types
+        self.variable_types.clear();
 
         let mut statements = Vec::new();
+        let mut had_error = false; // NEW: Track if we hit any syntax errors
 
         self.swallow_new_lines();
         if self.is_at_end() {
-            return statements; // Stop if we're out of tokens
+            return Some(statements);
         }
 
         // Boundary checks
@@ -68,6 +69,7 @@ impl Parser {
             )
             .is_err()
         {
+            had_error = true;
             self.synchronize();
         }
         self.swallow_new_lines();
@@ -78,12 +80,14 @@ impl Parser {
             )
             .is_err()
         {
+            had_error = true;
             self.synchronize();
         }
         if self
             .consume(TokenType::NewLine, "Expect newline after 'START SCRIPT'.")
             .is_err()
         {
+            had_error = true;
             self.synchronize();
         }
 
@@ -93,7 +97,10 @@ impl Parser {
 
             match self.declaration() {
                 Ok(decl_list) => statements.extend(decl_list),
-                Err(_) => self.synchronize(),
+                Err(_) => {
+                    had_error = true; // NEW: We caught an error!
+                    self.synchronize();
+                }
             }
         }
 
@@ -105,10 +112,23 @@ impl Parser {
             )
             .is_err()
         {
+            had_error = true;
             self.synchronize();
         }
 
-        statements
+        // Check for trailing garbage
+        self.swallow_new_lines();
+        if !self.is_at_end() {
+            had_error = true; // NEW: Flag trailing garbage as an error
+            let peek_token = self.peek().clone();
+            self.error(
+                &peek_token,
+                "Unexpected code found after 'END SCRIPT'. Only one script block is allowed.",
+            );
+        }
+
+        // CRITICAL FIX: If there were any errors, abort and return None!
+        if had_error { None } else { Some(statements) }
     }
 
     // --- EXPRESSIONS ---
@@ -118,13 +138,11 @@ impl Parser {
     }
 
     fn assignment(&mut self) -> Result<Expr, ParseError> {
-        // 1. Parse the left side (could be a variable, or a complex logic)
         let expr = self.concatenation()?;
 
         if self.match_tokens(&[TokenType::Equal]) {
-            // If we see '='
             let equals = self.previous().clone();
-            let value = self.assignment()?; // Recursively parse the right side
+            let value = self.assignment()?;
 
             if let Expr::Variable { name } = expr {
                 return Ok(Expr::Assign {
@@ -166,7 +184,7 @@ impl Parser {
     }
 
     fn and(&mut self) -> Result<Expr, ParseError> {
-        let mut expr = self.logical_not()?; // Call the next level up
+        let mut expr = self.logical_not()?;
         while self.match_tokens(&[TokenType::And]) {
             let operator = self.previous().clone();
             let right = self.logical_not()?;
@@ -182,13 +200,13 @@ impl Parser {
     fn logical_not(&mut self) -> Result<Expr, ParseError> {
         if self.match_tokens(&[TokenType::Not]) {
             let operator = self.previous().clone();
-            let right = self.logical_not()?; // Recursive to handle NOT NOT TRUE
+            let right = self.logical_not()?;
             return Ok(Expr::Unary {
                 operator,
                 right: Box::new(right),
             });
         }
-        self.equality() // NOT applies to the result of a comparison/equality
+        self.equality()
     }
 
     fn equality(&mut self) -> Result<Expr, ParseError> {
@@ -267,7 +285,6 @@ impl Parser {
     fn primary(&mut self) -> Result<Expr, ParseError> {
         let token = self.peek().clone();
 
-        // This is where Rust shines: safely extracting values directly from the TokenType Enum!
         match &token.token_type {
             TokenType::IntLiteral(val) => {
                 self.advance();
@@ -337,13 +354,10 @@ impl Parser {
     }
 
     // --- STATEMENTS ---
-
     fn statement(&mut self) -> Result<Vec<Stmt>, ParseError> {
         let mut list = Vec::new();
         self.swallow_new_lines();
 
-        // Safety check: If we see a "closing" or "branching" keyword,
-        // we stop parsing statements so the parent block can handle it.
         if self.check(&TokenType::EndIf)
             || self.check(&TokenType::Else)
             || self.check(&TokenType::ElseIf)
@@ -351,7 +365,14 @@ impl Parser {
             || self.check(&TokenType::EndRepeat)
             || self.check(&TokenType::EndScript)
         {
-            return Ok(list);
+            let peek_token = self.peek().clone();
+            return Err(self.error(
+                &peek_token,
+                &format!(
+                    "Unexpected '{}' found. Missing matching START block.",
+                    peek_token.lexeme
+                ),
+            ));
         }
 
         if self.match_tokens(&[TokenType::NewLine]) {
@@ -369,7 +390,6 @@ impl Parser {
         } else if self.match_tokens(&[TokenType::For]) {
             list.push(self.for_statement()?);
         } else {
-            // Only parse as expression if it's not a keyword
             list.push(self.expression_statement()?);
         }
 
@@ -380,7 +400,6 @@ impl Parser {
     fn declaration(&mut self) -> Result<Vec<Stmt>, ParseError> {
         self.swallow_new_lines();
 
-        // Check if we are actually at the end of the script after swallowing lines
         if self.check(&TokenType::EndScript) || self.is_at_end() {
             return Ok(Vec::new());
         }
@@ -393,7 +412,6 @@ impl Parser {
             return self.var_declaration();
         }
 
-        // Once we hit a PRINT, IF, or Assignment, we lock declarations
         self.allow_declarations = false;
         self.statement()
     }
@@ -410,7 +428,7 @@ impl Parser {
             ));
         }
 
-        // Custom check to make sure it's an Identifier
+        // custom check to make sure identifier sya
         if !matches!(self.peek().token_type, TokenType::Identifier(_)) {
             let peek_token = self.peek().clone();
             return Err(self.error(
@@ -425,7 +443,6 @@ impl Parser {
         loop {
             let name = self.consume_identifier("Expect variable name.")?;
 
-            // checks if the name already exists
             if self.variable_types.contains_key(&name.lexeme) {
                 return Err(self.error(
                     &name,
@@ -476,9 +493,7 @@ impl Parser {
             let var_token = self.consume_identifier("Expect variable name for SCAN.")?;
             variables.push(var_token.clone());
 
-            // Look up the type from our map
             if let Some(t_type) = self.variable_types.get(&var_token.lexeme) {
-                // Convert TokenType Enum name to string representation
                 let type_name = match t_type {
                     TokenType::IntType => "INT".to_string(),
                     TokenType::FloatType => "FLOAT".to_string(),
@@ -550,11 +565,11 @@ impl Parser {
 
         let mut else_branch = None;
 
-        // Handle 'ELSE IF'
+        // handle else if
         if self.match_tokens(&[TokenType::ElseIf]) {
             else_branch = Some(Box::new(self.if_statement()?));
         }
-        // Handle standard 'ELSE'
+        // handle else
         else if self.match_tokens(&[TokenType::Else]) {
             self.swallow_new_lines();
             self.consume(TokenType::StartIf, "Expect 'START IF' after 'ELSE'.")?;
@@ -634,7 +649,7 @@ impl Parser {
         Ok(Stmt::Block { statements })
     }
 
-    // --- HELPER METHODS ---
+    // --- helper methods ---
 
     fn error(&self, token: &Token, message: &str) -> ParseError {
         if token.token_type == TokenType::Eof {
@@ -662,9 +677,6 @@ impl Parser {
         if self.is_at_end() {
             return false;
         }
-        // In Rust, using == on Enum variants without inner data works perfectly
-        // (e.g. TokenType::Plus == TokenType::Plus).
-        // For variants with inner data (like Identifier), we handle them in dedicated functions.
         &self.peek().token_type == token_type
     }
 
@@ -687,17 +699,54 @@ impl Parser {
         &self.tokens[self.current - 1]
     }
 
-    /// Helper dedicated entirely to safely grabbing an identifier payload
+    /// Helper dedicated entirely to safely grabbing an identifier payload.
     fn consume_identifier(&mut self, message: &str) -> Result<Token, ParseError> {
         if matches!(self.peek().token_type, TokenType::Identifier(_)) {
             Ok(self.advance().clone())
         } else {
             let token = self.peek().clone();
-            Err(self.error(&token, message))
+
+            // NEW: Smarter error messaging based on the token type
+            let error_msg = match token.token_type {
+                // If it's a known reserved word, give the strict keyword error
+                TokenType::IntType
+                | TokenType::FloatType
+                | TokenType::BoolType
+                | TokenType::CharType
+                | TokenType::Declare
+                | TokenType::Print
+                | TokenType::Scan
+                | TokenType::If
+                | TokenType::Else
+                | TokenType::ElseIf
+                | TokenType::For
+                | TokenType::And
+                | TokenType::Or
+                | TokenType::Not
+                | TokenType::ScriptArea
+                | TokenType::StartScript
+                | TokenType::EndScript
+                | TokenType::RepeatWhen
+                | TokenType::StartRepeat
+                | TokenType::EndRepeat
+                | TokenType::StartIf
+                | TokenType::EndIf
+                | TokenType::StartFor
+                | TokenType::EndFor => {
+                    format!(
+                        "Reserved keyword '{}' cannot be used as a variable name.",
+                        token.lexeme
+                    )
+                }
+                // If it's a symbol like '=', just give the standard missing variable message
+                _ => format!("{} Got '{}' instead.", message, token.lexeme),
+            };
+
+            Err(self.error(&token, &error_msg))
         }
     }
 
-    /// Helper dedicated to checking data types
+    // checking data types
     fn consume_any_type(&mut self, message: &str) -> Result<Token, ParseError> {
         match self.peek().token_type {
             TokenType::IntType
@@ -720,13 +769,11 @@ impl Parser {
     }
 
     fn swallow_new_lines(&mut self) {
-        while self.match_tokens(&[TokenType::NewLine, TokenType::Comment]) {
-            // Just consume them and do nothing
-        }
+        while self.match_tokens(&[TokenType::NewLine, TokenType::Comment]) {}
     }
 
     fn synchronize(&mut self) {
-        self.advance(); // Skip the "bad" token that caused the error
+        self.advance();
 
         while !self.is_at_end() {
             if self.previous().token_type == TokenType::NewLine {

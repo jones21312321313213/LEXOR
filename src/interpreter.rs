@@ -31,7 +31,6 @@ impl Interpreter {
     fn execute(&mut self, stmt: &Stmt) -> Result<(), RuntimeError> {
         match stmt {
             Stmt::Block { statements } => {
-                // Create a new child environment that points to the current one
                 let new_env = Rc::new(RefCell::new(Environment::new_with_enclosing(Rc::clone(
                     &self.environment,
                 ))));
@@ -49,7 +48,17 @@ impl Interpreter {
                 else_branch,
             } => {
                 let cond_value = self.evaluate(condition)?;
-                if self.is_truthy(&cond_value) {
+
+                let is_true = match cond_value {
+                    LiteralValue::Bool(b) => b,
+                    _ => {
+                        return Err(RuntimeError::new(
+                            Token::new(TokenType::If, "IF".to_string(), 0), // Fallback token
+                            "Type mismatch: IF condition must evaluate to a BOOL.".to_string(),
+                        ));
+                    }
+                };
+                if is_true {
                     self.execute(then_branch)
                 } else if let Some(el_branch) = else_branch {
                     self.execute(el_branch)
@@ -61,7 +70,7 @@ impl Interpreter {
             Stmt::Print { expression } => {
                 let value = self.evaluate(expression)?;
                 print!("{}", self.stringify(&value));
-                io::stdout().flush().unwrap(); // Ensure it prints immediately
+                io::stdout().flush().unwrap();
                 Ok(())
             }
 
@@ -105,7 +114,6 @@ impl Interpreter {
                 if let Some(init_expr) = initializer {
                     let init_val = self.evaluate(init_expr)?;
 
-                    // Type Checking (Matches LEXOR strict typing)
                     match (&value, &init_val) {
                         (LiteralValue::Int(_), LiteralValue::Int(_)) => {}
                         (LiteralValue::Int(_), _) => {
@@ -149,11 +157,20 @@ impl Interpreter {
 
             Stmt::While { condition, body } => {
                 loop {
-                    // 1. Mutably borrow self to evaluate the condition
                     let cond_val = self.evaluate(condition)?;
 
-                    // 2. The mutable borrow is over! Now immutably borrow self for is_truthy
-                    if !self.is_truthy(&cond_val) {
+                    let is_true = match cond_val {
+                        LiteralValue::Bool(b) => b,
+                        _ => {
+                            return Err(RuntimeError::new(
+                                Token::new(TokenType::RepeatWhen, "REPEAT WHEN".to_string(), 0),
+                                "Type mismatch: REPEAT WHEN condition must evaluate to a BOOL."
+                                    .to_string(),
+                            ));
+                        }
+                    };
+
+                    if !is_true {
                         break;
                     }
 
@@ -178,7 +195,19 @@ impl Interpreter {
 
                     loop {
                         let cond_val = self.evaluate(condition)?;
-                        if !self.is_truthy(&cond_val) {
+
+                        // STRICT TYPE CHECK: Condition MUST be a Boolean
+                        let is_true =
+                            match cond_val {
+                                LiteralValue::Bool(b) => b,
+                                _ => return Err(RuntimeError::new(
+                                    Token::new(TokenType::For, "FOR".to_string(), 0),
+                                    "Type mismatch: FOR loop condition must evaluate to a BOOL."
+                                        .to_string(),
+                                )),
+                            };
+
+                        if !is_true {
                             break;
                         }
 
@@ -189,7 +218,7 @@ impl Interpreter {
                     Ok(())
                 })();
 
-                self.environment = previous_env; // restore environment
+                self.environment = previous_env;
                 result
             }
         }
@@ -203,7 +232,6 @@ impl Interpreter {
         let previous = Rc::clone(&self.environment);
         self.environment = env;
 
-        // Execute all statements, but catch any errors so we can restore the environment before bubbling them up
         let result = (|| -> Result<(), RuntimeError> {
             for statement in statements {
                 self.execute(statement)?;
@@ -278,15 +306,25 @@ impl Interpreter {
             } => {
                 let left_val = self.evaluate(left)?;
 
-                // Rust pattern matching handles the short-circuiting beautifully
+                let left_bool = match left_val {
+                    LiteralValue::Bool(b) => b,
+                    _ => {
+                        return Err(RuntimeError::new(
+                            operator.clone(),
+                            "Type mismatch: Logical operators require BOOL expressions."
+                                .to_string(),
+                        ));
+                    }
+                };
+
                 match operator.token_type {
                     TokenType::Or => {
-                        if self.is_truthy(&left_val) {
+                        if left_bool {
                             return Ok(LiteralValue::Bool(true));
                         }
                     }
                     TokenType::And => {
-                        if !self.is_truthy(&left_val) {
+                        if !left_bool {
                             return Ok(LiteralValue::Bool(false));
                         }
                     }
@@ -294,13 +332,33 @@ impl Interpreter {
                 }
 
                 let right_val = self.evaluate(right)?;
-                Ok(LiteralValue::Bool(self.is_truthy(&right_val)))
+
+                let right_bool = match right_val {
+                    LiteralValue::Bool(b) => b,
+                    _ => {
+                        return Err(RuntimeError::new(
+                            operator.clone(),
+                            "Type mismatch: Logical operators require BOOL expressions."
+                                .to_string(),
+                        ));
+                    }
+                };
+
+                Ok(LiteralValue::Bool(right_bool))
             }
 
             Expr::Unary { operator, right } => {
                 let right_val = self.evaluate(right)?;
                 match operator.token_type {
-                    TokenType::Not => Ok(LiteralValue::Bool(!self.is_truthy(&right_val))),
+                    // STRICT TYPE CHECK: NOT requires a Boolean
+                    TokenType::Not => match right_val {
+                        LiteralValue::Bool(b) => Ok(LiteralValue::Bool(!b)),
+                        _ => Err(RuntimeError::new(
+                            operator.clone(),
+                            "Type mismatch: NOT operator requires a BOOL expression.".to_string(),
+                        )),
+                    },
+
                     TokenType::Minus => match right_val {
                         LiteralValue::Int(i) => Ok(LiteralValue::Int(-i)),
                         LiteralValue::Float(f) => Ok(LiteralValue::Float(-f)),

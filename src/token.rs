@@ -1,5 +1,3 @@
-/// The TokenType enum uses Rust's powerful sum types to store data
-/// directly inside the variants. No more messy 'Object literal' casting!
 #[derive(Debug, Clone, PartialEq)]
 pub enum TokenType {
     // Single char tokens
@@ -17,10 +15,9 @@ pub enum TokenType {
     Dollar,
     Ampersand,
 
-    // Special LEXOR tokens
     EscapeCode, // for []
 
-    // Comparison
+    // comparison
     Greater,
     GreaterEqual,
     Less,
@@ -29,7 +26,7 @@ pub enum TokenType {
     EqualEqual,
     NotEqual,
 
-    //Literals
+    //literals
     Identifier(String),
     IntLiteral(i64),
     FloatLiteral(f64),
@@ -37,18 +34,18 @@ pub enum TokenType {
     BoolLiteral(bool),
     StringLiteral(String),
 
-    // Data types
+    // data types
     IntType,
     CharType,
     BoolType,
     FloatType,
 
-    // Logical operators
+    // logical operators
     And,
     Or,
     Not,
 
-    // Keywords
+    // keywords
     ScriptArea,
     StartScript,
     EndScript,
@@ -56,7 +53,7 @@ pub enum TokenType {
     Print,
     Scan,
 
-    // Control flow
+    // control flow
     If,
     StartIf,
     EndIf,
@@ -74,8 +71,6 @@ pub enum TokenType {
     Eof,
 }
 
-/// The Token struct is now incredibly clean.
-/// It only needs the type (which holds the data), the raw text, and the line number.
 #[derive(Debug, Clone)]
 pub struct Token {
     pub token_type: TokenType,
@@ -84,7 +79,6 @@ pub struct Token {
 }
 
 impl Token {
-    /// A helpful constructor to make creating tokens easier in your Scanner
     pub fn new(token_type: TokenType, lexeme: String, line: usize) -> Self {
         Self {
             token_type,
