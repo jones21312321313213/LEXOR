@@ -75,8 +75,11 @@ impl Interpreter {
             }
 
             Stmt::Scan { variables, types } => {
+                io::stdout().flush().unwrap();
+
                 let mut input = String::new();
                 io::stdin().read_line(&mut input).unwrap();
+
                 let parts: Vec<&str> = input.trim().split(',').collect();
 
                 if parts.len() < variables.len() {

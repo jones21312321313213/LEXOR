@@ -44,14 +44,14 @@ fn run_file(path: &str) -> io::Result<()> {
 
 fn run_prompt() -> io::Result<()> {
     let stdin = io::stdin();
-    let mut reader = stdin.lock();
     let mut multi_line_source = String::new();
 
     println!("--- Enter your LEXOR script (type 'RUN' on a new line to execute)");
 
     let mut line = String::new();
 
-    while reader.read_line(&mut line)? > 0 {
+    // Read directly from stdin, no continuous lock!
+    while stdin.read_line(&mut line)? > 0 {
         if line.trim().eq_ignore_ascii_case("run") {
             if let Err(e) = run(&multi_line_source) {
                 eprintln!("Error: {}", e);
