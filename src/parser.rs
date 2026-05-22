@@ -279,7 +279,8 @@ impl Parser {
                 right: Box::new(right),
             });
         }
-        self.primary()
+        // self.primary()
+        self.postfix()
     }
 
     fn primary(&mut self) -> Result<Expr, ParseError> {
@@ -650,6 +651,46 @@ impl Parser {
     }
 
     // --- helper methods ---
+
+    fn postfix(&mut self) -> Result<Expr, ParseError> {
+        let expr = self.primary()?;
+
+        if self.match_tokens(&[TokenType::PlusPlus, TokenType::MinusMinus]) {
+            let operator = self.previous().clone();
+
+            if let Expr::Variable { name } = &expr {
+                // Desugar "i++" into "i = i + 1"
+                let synthetic_op = if operator.token_type == TokenType::PlusPlus {
+                    Token::new(TokenType::Plus, "+".to_string(), operator.line)
+                } else {
+                    Token::new(TokenType::Minus, "-".to_string(), operator.line)
+                };
+
+                let one = Expr::Literal {
+                    value: LiteralValue::Int(1),
+                };
+
+                let binary = Expr::Binary {
+                    left: Box::new(expr.clone()),
+                    operator: synthetic_op,
+                    right: Box::new(one),
+                };
+
+                // Return an Assignment AST Node
+                return Ok(Expr::Assign {
+                    name: name.clone(),
+                    value: Box::new(binary),
+                });
+            } else {
+                return Err(self.error(
+                    &operator,
+                    "Invalid target for increment/decrement operator.",
+                ));
+            }
+        }
+
+        Ok(expr)
+    }
 
     fn error(&self, token: &Token, message: &str) -> ParseError {
         if token.token_type == TokenType::Eof {

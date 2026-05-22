@@ -15,6 +15,9 @@ pub enum TokenType {
     Dollar,
     Ampersand,
 
+    PlusPlus,
+    MinusMinus,
+
     EscapeCode, // for []
 
     // comparison

@@ -41,7 +41,8 @@ impl Lexer {
             
             re_keyword_or_id: Regex::new(r"^[a-zA-Z_][a-zA-Z0-9_]*").unwrap(),
             
-           re_symbol: Regex::new(r"^(==|>=|<=|<>|!=|\[.\]|\[\]|&&|\|\||!|\+|-|\*|/|%|&|<|>|=|\[|\]|\(|\)|,|:|\$)").unwrap(),
+          // Replace your existing re_symbol with this one:
+            re_symbol: Regex::new(r"^(==|>=|<=|<>|!=|\+\+|--|\[.\]|\[\]|&&|\|\||!|\+|-|\*|/|%|&|<|>|=|\[|\]|\(|\)|,|:|\$)").unwrap(),
         }
     }
 
@@ -171,6 +172,8 @@ impl Lexer {
             self.current += mat.end();
             
             let token_type = match text {
+                "++"=> TokenType::PlusPlus,
+                "--"=> TokenType::MinusMinus,
                 "(" => TokenType::LeftPar,
                 ")" => TokenType::RightPar,
                 "[" => TokenType::LeftBracket,
