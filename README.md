@@ -271,6 +271,4 @@ The interpreter follows a classic three-phase pipeline:
 
 ---
 
-## 📝 License
 
-This project was developed as a course requirement for a Programming Languages class.
