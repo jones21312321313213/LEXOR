@@ -7,7 +7,7 @@
 
 ## ✨ Features
 
-- **Tree-Walking Interpreter:** Parses source code into an Abstract Syntax Tree (AST) and walks it directly for execution — no bytecode, no VM.
+- **Tree-Walking Interpreter:** Parses source code into an Abstract Syntax Tree (AST) and walks it directly for execution no bytecode, no VM.
 - **Hand-Written Lexer:** A dedicated scanning pass tokenizes raw LEXOR source into a clean token stream.
 - **Recursive-Descent Parser:** Produces a typed AST of `Stmt` and `Expr` nodes, with clear and descriptive syntax errors.
 - **Strong Typing:** Supports `INT`, `FLOAT`, `CHAR`, and strictly quoted `BOOL` (`"TRUE"`/`"FALSE"`) types with full type-checking at runtime.
